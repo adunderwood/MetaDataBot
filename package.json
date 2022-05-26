@@ -1,0 +1,25 @@
+{
+  "name": "metadatabot",
+  "version": "1.0.0",
+  "description": "Gets the meta data from an image and returns it as a JSON file",
+  "main": "inception.js",
+  "scripts": {
+    "start": "node metadata.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.27.2",
+    "sharp": "^0.30.4",
+    "uuid": "^8.3.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adunderwood/MetaDataBot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adunderwood/MetaDataBot/issues"
+  },
+  "homepage": "https://github.com/adunderwood/MetaDataBot#readme"
+}
