@@ -6,7 +6,7 @@ const http = require('http');
 const { v4: uuidv4 } = require('uuid');
 const sharp = require("sharp");
 
-const hostname = '127.0.0.1';
+const hostname = '0.0.0.0';
 const port = 7777;
 
 // get querystring parameters
@@ -37,6 +37,12 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(port, hostname, () => {
+  var dir = './tmp';
+  if (!fs.existsSync(dir)){
+    console.log("Created tmp directory");
+    fs.mkdirSync(dir);
+  }
+
   console.log(`Server running at http://${hostname}:${port}/`);
 });
 
