@@ -5,9 +5,10 @@ const client = require('https');
 const http = require('http');
 const { v4: uuidv4 } = require('uuid');
 const sharp = require("sharp");
+const sha1 = require('sha1');
 
-const hostname = '0.0.0.0';
-const port = 7777;
+const hostname = '127.0.0.1';
+const port = 4000;
 
 // get querystring parameters
 var params=function(req){
@@ -56,7 +57,11 @@ axios.get(encodeURI(url), {responseType: "stream"} )
     // log error and process 
     })
     .on('finish', () => {
-      getMetaData(filepath, res)
+      const data = fs.readFileSync(filepath.toString(), 'base64');
+
+      var hash = sha1(data);
+
+      getMetaData(filepath, res, hash)
     });
   });
 }
@@ -75,7 +80,11 @@ function getFileSize(file) {
   return ret
 }
 
-async function getMetaData(file, res) {
+async function getMetaData(file, res, hash) {
+
+  var meta = {}
+  meta.hash = hash;
+
   try {
 
     //var img = "../images/" + file.flower;
@@ -83,8 +92,10 @@ async function getMetaData(file, res) {
     const metadata = await sharp(file).metadata();
     // file.meta = metadata;
 
-    var meta = {}
-     meta.filesize = getFileSize(file);
+    //meta.bin = f;
+    //meta.hash = hash;
+
+    meta.filesize = getFileSize(file);
 
      if (metadata.format) {
       meta.format = metadata.format;
@@ -106,6 +117,20 @@ async function getMetaData(file, res) {
     meta.space = metadata.space;
     meta.progressive = metadata.isProgressive;
 
+    var wh = meta.width * meta.height;
+    var fs = meta.filesize * 1000;
+    var ent = wh / fs;
+    var entRnd = Math.round(ent);
+    meta.complexity = entRnd;
+
+    /*
+    if (ent > 0) {
+      meta.entropy = Math.round(meta.filesize / ent);
+    } else {
+      meta.entropy = 0;
+    }
+    */
+
     /*
     var colorSet = [...new Set(metaColors)];
     meta.colors = colorSet;
@@ -126,25 +151,94 @@ async function getMetaData(file, res) {
       meta.display_mode = "square";
     }
 
-    console.log(meta);
-
   } catch (error) {
     console.log(`An error occurred during processing: ${error}`);
   }
 
-  // delete file
-  fs.unlink(file, (err) => {
-    if (err) {
-      console.error(err)
-      return
-    }
-  });
-
-  var output = {}
-  output.meta = meta
-
   // try to attach meta data, if not, just send what you got
-  sendData(output, res);
+  getEntropyFromFile(meta, file, res);
+}
+
+async function getEntropyFromFile(meta, file, res) {
+  var output = {}
+
+  try {
+
+    //var img = "../images/" + file.flower;
+    if (file) {
+
+      //console.log(file)
+      let raw = fs.readFileSync(file)
+      //console.log(raw)
+      let freqList = []
+
+      //console.log(`Bytes: ${raw.length}`)
+      bytes = raw
+
+      const getEntropy = (bytes) => {
+        for (let i = 0; i < 255; i++) {
+            let ctr = 0
+            for (byte of bytes) {
+                if (byte == i) {
+                    ctr++
+                }
+            }
+            freqList.push(ctr / bytes.length)
+        }
+        let ent = 0.0
+        for (const [ind, freq] of freqList.entries()) {
+            if (freq > 0) {
+                ent = ent + (freq * Math.log2(freq))
+            }
+        }
+        ent = -ent
+        //console.log('Shannon entropy (min bits per byte-character):')
+        //console.log(ent)
+        //console.log('Min possible file size assuming max theoretical compression efficiency:')
+        //console.log(ent * raw.length)
+
+        meta.shannon = Math.round(ent * 100)
+        meta.min_filesize = (Math.round((ent * raw.length) / 10000) * 100) / 100 //kb
+
+        var diff = Math.round(meta.min_filesize / meta.filesize * 1000) / 1000
+        diff *= 1000
+
+        meta.information = meta.filesize - meta.min_filesize
+
+        meta.entropy = meta.shannon - diff
+        if (meta.entropy < 0) { meta.entropy = 0 }
+
+        console.log(meta)
+        output.meta = meta
+
+        // try to attach meta data, if not, just send what you got
+        sendData(output, res);
+
+      }
+
+      getEntropy(raw)
+
+    }
+
+  } catch (error) {
+    console.log(`An error occurred during processing: ${error}`);
+    sendData(output, res);
+  }
+
+  try {
+    if (fs.existsSync(file)) {
+      // delete file
+      fs.unlink(file, (err) => {
+        if (err) {
+          console.error(err)
+          return
+        }
+      });
+    }
+  } catch(err) {
+    //console.log(err);
+  }
+
 }
 
 
