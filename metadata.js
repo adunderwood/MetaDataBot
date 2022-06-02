@@ -6,6 +6,7 @@ const http = require('http');
 const { v4: uuidv4 } = require('uuid');
 const sharp = require("sharp");
 const sha1 = require('sha1');
+const md5 = require('md5');
 
 const hostname = '127.0.0.1';
 const port = 4000;
@@ -59,9 +60,14 @@ axios.get(encodeURI(url), {responseType: "stream"} )
     .on('finish', () => {
       const data = fs.readFileSync(filepath.toString(), 'base64');
 
-      var hash = sha1(data);
+      var base64 = data;
 
-      getMetaData(filepath, res, hash)
+      var tmp = {}
+      tmp.sha1 = sha1(data);
+      tmp.md5 = md5(data);
+      tmp.base64 = base64;
+
+      getMetaData(filepath, res, tmp)
     });
   });
 }
@@ -80,10 +86,15 @@ function getFileSize(file) {
   return ret
 }
 
-async function getMetaData(file, res, hash) {
+async function getMetaData(file, res, obj) {
 
   var meta = {}
-  meta.hash = hash;
+
+  if (obj) {
+    meta.sha1 = obj.sha1;
+    meta.md5 = obj.md5;
+    //meta.base64 = obj.base64;
+  }
 
   try {
 
